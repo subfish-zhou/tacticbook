@@ -1,35 +1,26 @@
 # Tactic cheatsheet
-### rw
+### rewrite
 
-**功能** 
-
-1. 使用一个等式，``rw`` 在**目标**中找到符合等式左侧的部分，然后将这部分替换为等式右侧。
-   1. 反向重写，即将目标中的一部分替换为等式的左侧；
-   2. 等式：通常需要是等式或等价关系。
-
+`rw` is like `rewrite`, but also tries to close the goal by "cheap" (reducible) `rfl` afterwards.
 
 **语法**
 ```lean
-rw [theorem1, theorem2, ...]
-rw [theorem1, ← theorem2, ...]
+rw [expression1, ← expression2, ...]
 ```
+**功能** 
+
+使用一个等价关系表达式，``rw`` 在目标中找到符合等价关系左侧的部分，然后将这部分替换为等价关系右侧。
+- 可以在表达式前添加 `←` 表示反转重写方向，即从右侧到左侧。
+- 支持的等价关系：等式、双向蕴含、同构......
 
 **用例**
 ```lean
--- 定义定理
-theorem theorem1 : (2 + 3) = 5 :=
-  rfl  -- 直接使用 reflexivity 证明，表明左边等于右边
+example (a b c : Nat) : a + b + c = a + c + b := by
+  rewrite [Nat.add_assoc a b c, Nat.add_comm b, ← Nat.add_assoc]
+  rfl  -- 如果使用 `rw` 策略就不需要`rfl`
 
--- 定义带变量的定理，表示加法的结合律
-theorem theorem2 (x : Nat) : 5 + 1 + x = 5 + (1 + x) := by
-  rw [Nat.add_assoc]  -- 使用加法的结合律，将左边的表达式重新排列
-
--- 证明目标 P，目标为 (2 + 3) + (1 + x) = 5 + (1 + x)
-theorem example_proof : (2 + 3) + (1 + x) = 5 + 1 + x :=
-by
-  rw [theorem1]  -- 将 (2 + 3) 替换为 5，目标变为 5 + (1 + x) = 5 + (1 + x)
-
-  rw [← theorem2]  -- 将目标中的 5 + (1 + x) 重新写为 5 + 1 + x，以便利用加法的结合律进行进一步简化
+example (p q r : Prop) (h : p ↔ q) : p ∧ r ↔ q ∧ r := by
+  rw [h]
 ```
 
 **变体**
