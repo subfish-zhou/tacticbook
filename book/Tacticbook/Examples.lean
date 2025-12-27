@@ -1548,6 +1548,19 @@ private partial def firstTokenText? (stx : Syntax) : Option String :=
         acc <|> firstTokenText? a
   | .missing => none
 
+/--
+Check if a block is a paragraph starting with `--` (a line comment).
+These should be filtered out in setup directives.
+-/
+def isLineCommentBlock : TSyntax `block → Bool
+  | `(block| para[ $args:inline* ]) =>
+    if h : args.size > 0 then
+      match args[0] with
+      | `(inline| $s:str) => s.getString.trimLeft.startsWith "--"
+      | _ => false
+    else false
+  | _ => false
+
 @[directive_expander setup]
 def setup : DirectiveExpander
   | args, contents => do
@@ -1557,58 +1570,18 @@ def setup : DirectiveExpander
     else
       let first := contents[0]
       let contents := contents.extract 1 contents.size
+      -- Filter out line comment paragraphs (those starting with --)
+      let contents := contents.filter (!isLineCommentBlock ·)
       let `(block|``` | $setupCode ```) := first
         | throwErrorAt first "Expected undecorated code block"
       if helperExt.getState (← getEnv) |>.isSome then
         throwError "Already highlighting Lean"
-
-      let stripDashDashLines (s : String) : String :=
-        let endsWithNl := s.endsWith "\n"
-        let lines := s.splitOn "\n"
-        let kept := lines.filter fun line =>
-          let trimmedLeft := line.dropWhile Char.isWhitespace
-          !trimmedLeft.startsWith "--"
-        let out := "\n".intercalate kept
-        if endsWithNl && !out.endsWith "\n" then out ++ "\n" else out
-
-      let stripDashDashInBlock : TSyntax `block → DocElabM (TSyntax `block)
-        | b@`(block|```$nameStx:ident $bArgs*|$bContents:str```) =>
-            let s' := stripDashDashLines bContents.getString
-            if s' == bContents.getString then
-              pure b
-            else
-              let bContents' : TSyntax `str :=
-                ⟨Syntax.mkStrLit s' (info := bContents.raw.getHeadInfo)⟩
-              `(block|```$nameStx $bArgs*|$bContents'```)
-        | b@`(block|``` | $bContents:str ```) =>
-            let s' := stripDashDashLines bContents.getString
-            if s' == bContents.getString then
-              pure b
-            else
-              let bContents' : TSyntax `str :=
-                ⟨Syntax.mkStrLit s' (info := bContents.raw.getHeadInfo)⟩
-              `(block|``` | $bContents'```)
-        | b => pure b
-
-      let helper ← Helper.fromModule (stripDashDashLines setupCode.getString)
+      let helper ← Helper.fromModule setupCode.getString
       modifyEnv fun env => helperExt.setState env (some helper)
-      let oldStrip := stripDashDashExt.getState (← getEnv)
-      modifyEnv fun env => stripDashDashExt.setState env true
       try
-        let isDashDashCommentBlock (b : TSyntax `block) : Bool :=
-          match firstTokenText? b.raw with
-          | none => false
-          | some s =>
-            let trimmedLeft := s.dropWhile Char.isWhitespace
-            trimmedLeft.startsWith "--"
-
-        let contents ← contents.mapM stripDashDashInBlock
-        let contents := contents.filter (fun b => !isDashDashCommentBlock b)
         contents.mapM elabBlock
       finally
-        modifyEnv fun env => stripDashDashExt.setState env oldStrip
         modifyEnv fun env => helperExt.setState env none
-
 
 def prioritizedElab [Monad m] (prioritize : α → m Bool) (act : α  → m β) (xs : Array α) : m (Array β) := do
   let mut out := #[]
@@ -1639,52 +1612,11 @@ def leanFirst : DirectiveExpander
   | args, contents => do
     ArgParse.done.run args
 
-    let stripDashDashLines (s : String) : String :=
-      let endsWithNl := s.endsWith "\n"
-      let lines := s.splitOn "\n"
-      let kept := lines.filter fun line =>
-        let trimmedLeft := line.dropWhile Char.isWhitespace
-        !trimmedLeft.startsWith "--"
-      let out := "\n".intercalate kept
-      if endsWithNl && !out.endsWith "\n" then out ++ "\n" else out
-
-    let stripDashDashInBlock : TSyntax `block → DocElabM (TSyntax `block)
-      | b@`(block|```$nameStx:ident $bArgs*|$bContents:str```) =>
-          let s' := stripDashDashLines bContents.getString
-          if s' == bContents.getString then
-            pure b
-          else
-            let bContents' : TSyntax `str :=
-              ⟨Syntax.mkStrLit s' (info := bContents.raw.getHeadInfo)⟩
-            `(block|```$nameStx $bArgs*|$bContents'```)
-      | b@`(block|``` | $bContents:str ```) =>
-          let s' := stripDashDashLines bContents.getString
-          if s' == bContents.getString then
-            pure b
-          else
-            let bContents' : TSyntax `str :=
-              ⟨Syntax.mkStrLit s' (info := bContents.raw.getHeadInfo)⟩
-            `(block|``` | $bContents'```)
-      | b => pure b
-
-    let isDashDashCommentBlock (b : TSyntax `block) : Bool :=
-      match firstTokenText? b.raw with
-      | none => false
-      | some s =>
-        let trimmedLeft := s.dropWhile Char.isWhitespace
-        trimmedLeft.startsWith "--"
-
-    let contents ← contents.mapM stripDashDashInBlock
-    let contents := contents.filter (fun b => !isDashDashCommentBlock b)
-
-    let oldStrip := stripDashDashExt.getState (← getEnv)
-    modifyEnv fun env => stripDashDashExt.setState env true
+    -- Filter out line comment paragraphs (those starting with --)
+    let contents := contents.filter (!isLineCommentBlock ·)
 
     -- Elaborate Lean blocks first, so inlines in prior blocks can refer to them
-    try
-      prioritizedElab (isLeanBlock ·) elabBlock contents
-    finally
-      modifyEnv fun env => stripDashDashExt.setState env oldStrip
+    prioritizedElab (isLeanBlock ·) elabBlock contents
 
 
 @[code_block_expander setup]
