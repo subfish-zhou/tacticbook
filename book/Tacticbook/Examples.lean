@@ -15,7 +15,7 @@ open SubVerso.Examples.Messages
 open Lean
 open Std
 
-export Verso.Code.External (lit)
+exporT Verso.Code.External (lit)
 
 private def projectDir : System.FilePath := "../examples"
 
@@ -263,7 +263,7 @@ end
 def copyButtonCss : String :=
 r#"
 
-.tpil-code-container {
+.tacticbook-code-container {
     position: relative;
     margin: 20px 0;
 }
@@ -317,7 +317,7 @@ r#"
   opacity: 0.8;
 }
 
-.tpil-hide-prefix .hidden {
+.tacticbook-hide-prefix .hidden {
   grid-template-rows: 0fr;
   opacity: 0;
   margin: 0;
@@ -331,7 +331,7 @@ r#"
 
 def copyButtonJs : String :=
 r#"
-function addToggleButtonToElement(elementId, className = 'tpil-hide-prefix') {
+function addToggleButtonToElement(elementId, className = 'tacticbook-hide-prefix') {
     const element = document.getElementById(elementId);
     if (!element) {
         console.error(`Element with ID '${elementId}' not found`);
@@ -408,7 +408,7 @@ function addCopyButtonToElement(elementId, codeText) {
     let container = element.parentElement;
     if (!container.classList.contains('code-container')) {
         container = document.createElement('div');
-        container.className = 'tpil-code-container';
+        container.className = 'tacticbook-code-container';
 
         // Insert container before element
         element.parentNode.insertBefore(container, element);
@@ -513,7 +513,7 @@ def examplesCss := r#"
 }
 "#
 
-def tpilBlock (block : BlockDescr) : BlockDescr :=
+def tacticbookBlock (block : BlockDescr) : BlockDescr :=
   { block with
     extraJsFiles :=
       block.extraJsFiles
@@ -525,7 +525,7 @@ def tpilBlock (block : BlockDescr) : BlockDescr :=
 
     }
 
-def tpilInline (inline : InlineDescr) : InlineDescr :=
+def tacticbookInline (inline : InlineDescr) : InlineDescr :=
   { inline with
     extraJsFiles :=
       inline.extraJsFiles
@@ -552,7 +552,7 @@ block_extension Block.lean
     (code : Array ExampleItem)
     (post : Option Highlighted)
     (goalVisibility : HighlightHtmlM.VisibleProofStates := .none)
-    via withHighlighting, tpilBlock where
+    via withHighlighting, tacticbookBlock where
   data :=
     let defined : Array (Name × String) := code.flatMap (definedNames ·.code)
     .arr #[.bool allowToggle, toJson pre, toJson code, toJson post, toJson goalVisibility, toJson defined]
@@ -709,7 +709,7 @@ block_extension Block.lean
       }}
 
 block_extension Block.leanAnchor (code : Highlighted) (completeCode : String)
-    via withHighlighting, tpilBlock where
+    via withHighlighting, tacticbookBlock where
   data := .arr #[toJson code, toJson completeCode]
   traverse _ _ _ := pure none
   toTeX :=
@@ -800,7 +800,7 @@ def proofStateStyle := r#"
 "#
 
 block_extension Block.goals (goals : Array (Highlighted.Goal Highlighted))
-    via withHighlighting, tpilBlock where
+    via withHighlighting, tacticbookBlock where
   data := toJson goals
   traverse _ _ _ := pure none
   toTeX :=
@@ -838,7 +838,7 @@ block_extension Block.goals (goals : Array (Highlighted.Goal Highlighted))
       }}
 
 inline_extension Inline.goal (goal : Highlighted.Goal Highlighted)
-    via withHighlighting, tpilInline where
+    via withHighlighting, tacticbookInline where
   data := toJson goal
   traverse _ _ _ := pure none
   toTeX :=
@@ -1627,7 +1627,7 @@ open Lean Elab in
 def isLeanBlock : TSyntax `block → CoreM Bool
   | `(block|```$nameStx:ident $_args*|$_contents:str```) => do
     let name ← realizeGlobalConstNoOverloadWithInfo nameStx
-    return name == ``TPiLZh.lean || name == `TPiLZh.signature || name == `TPiLZh.savedAnchor
+    return name == ``Tacticbook.lean || name == `Tacticbook.signature || name == `Tacticbook.savedAnchor
   | _ => pure false
 
 
