@@ -1,0 +1,8 @@
+*.olean
+/_target
+/leanpkg.path
+out/
+.vs/
+.vscode/
+*/_out/*
+.DS_Store

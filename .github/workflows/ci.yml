@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Get short SHA
+        id: shortSHA
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Setup elan toolchain on this build
+        run: |
+          curl -O --location https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh
+          chmod u+x elan-init.sh
+          ./elan-init.sh -y --default-toolchain none
+
+      - name: Set elan paths
+        run: echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Install lean toolchain for examples
+        run: |
+          cd examples
+          lean --version
+
+      - name: Install lean toolchain for text
+        run: |
+          cd book
+          lean --version
+
+      - name: Cache examples/.lake
+        uses: actions/cache@v4
+        with:
+          path: examples/.lake
+          key: ${{ runner.os }}-examples-${{ hashFiles('examples/lake-manifest.json') }}-${{ hashFiles('examples/lean-toolchain') }}-${{ steps.shortSHA.outputs.short_sha }}
+          restore-keys: |
+            ${{ runner.os }}-examples-${{ hashFiles('examples/lake-manifest.json') }}-${{ hashFiles('examples/lean-toolchain') }}-
+
+      - name: Build examples
+        run: |
+          cd examples
+          lake build
+
+      - name: Cache book/.lake
+        uses: actions/cache@v4
+        with:
+          path: book/.lake
+          key: ${{ runner.os }}-${{ hashFiles('book/lake-manifest.json') }}-${{ hashFiles('book/lean-toolchain') }}-${{ steps.shortSHA.outputs.short_sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ hashFiles('book/lake-manifest.json') }}-${{ hashFiles('book/lean-toolchain') }}-
+
+      - name: Build book
+        run: |
+          pushd book
+          lake exe tacticbook --verbose
+          popd
+
+      - name: Save book/.lake
+        uses: actions/cache/save@v4
+        with:
+          path: book/.lake
+          key: ${{ runner.os }}-${{ hashFiles('book/lake-manifest.json') }}-${{ hashFiles('book/lean-toolchain') }}-${{ steps.shortSHA.outputs.short_sha }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: book/_out/html-multi
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/master' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

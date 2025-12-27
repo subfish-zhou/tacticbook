@@ -1,0 +1,14 @@
+name = "tacticbook-examples"
+version = "0.1.0"
+defaultTargets = ["Examples"]
+
+[[require]]
+name = "subverso"
+git = "https://github.com/leanprover/subverso.git"
+rev = "main"
+
+[leanOptions]
+weak.linter.typography.dashes = false
+
+[[lean_lib]]
+name = "Examples"
