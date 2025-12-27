@@ -15,7 +15,7 @@ open SubVerso.Examples.Messages
 open Lean
 open Std
 
-exporT Verso.Code.External (lit)
+export Verso.Code.External (lit)
 
 private def projectDir : System.FilePath := "../examples"
 
