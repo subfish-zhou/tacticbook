@@ -17,11 +17,12 @@ tag := "Intro"
 htmlSplit := .never
 %%%
 
+测试文本1
 
-:::setup
+:::leanFirst
 
 -- test text
-测试文本
+测试文本2
 
 ```lean
 -- test code
